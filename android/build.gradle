@@ -1,0 +1,38 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    ext {
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "1.8.22"
+        reactNativeGradlePluginVersion = "0.81.4"
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.1.1")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://www.jitpack.io' }
+        maven { 
+            url "$rootDir/../node_modules/react-native/android" 
+        }
+        maven {
+            // All of the Flipper dependencies are provided via the React Native Gradle Plugin
+            url "$rootDir/../node_modules/react-native-flipper/android/jitpack"
+        }
+    }
+}
+
+
