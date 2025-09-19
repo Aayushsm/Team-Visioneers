@@ -1,10 +1,10 @@
 const turf = require('@turf/turf');
 
 // Set up normal pattern thresholds - tweak as needed
-const NORMAL_SPEED = 1.2; // m/s, avg human walking
-const SPEED_STD = 0.6;
-const MAX_DWELL_TIME = 600; // seconds in a location (10 min)
-const MAX_DIRECTION_CHANGE = 90; // degrees, simple rule
+let NORMAL_SPEED = 1.2; // m/s, avg human walking
+let SPEED_STD = 0.6;
+let MAX_DWELL_TIME = 600; // seconds in a location (10 min)
+let MAX_DIRECTION_CHANGE = 90; // degrees, simple rule
 
 function calculateSpeed(coordA, coordB) {
   const from = turf.point([coordA.lng, coordA.lat]);
@@ -27,23 +27,44 @@ function calculateDirectionChange(coords) {
   return Math.acos(dot / (mag1 * mag2)) * (180 / Math.PI);
 }
 
-function detectAnomaly(traj) {
-  // traj: recent GPS coords [{ lat, lng, timestamp }]
-  if (traj.length < 2) return { anomaly: false, reason: "Insufficient data" };
+// Main anomaly detection logic, now returns a riskScore
+function detectAnomaly(traj, zoneInfo) {
+  if (traj.length < 2) return { anomaly: false, riskScore: 0, reason: "Insufficient data", features: {} };
   const features = {
     speed: calculateSpeed(traj[0], traj[traj.length - 1]),
     dwellTime: traj[traj.length - 1].timestamp - traj[0].timestamp,
     directionChange: calculateDirectionChange(traj)
   };
 
-  // Simple rule: flag if any feature is far from normal
-  if (features.speed > NORMAL_SPEED + 2 * SPEED_STD)
-    return { anomaly: true, features, reason: "Unusually high speed" };
-  if (features.dwellTime > MAX_DWELL_TIME)
-    return { anomaly: true, features, reason: "Dwell time too long" };
-  if (features.directionChange > MAX_DIRECTION_CHANGE)
-    return { anomaly: true, features, reason: "Erratic path" };
-  return { anomaly: false, features, reason: "Normal" };
+  let riskScore = 0;
+  let reason = "Normal";
+
+  if (features.speed > NORMAL_SPEED + 2 * SPEED_STD) {
+    riskScore = 0.9;
+    reason = "Unusually high speed";
+  }
+  if (features.dwellTime > MAX_DWELL_TIME) {
+    riskScore = Math.max(riskScore, 0.8);
+    reason = "Dwell time too long";
+  }
+  if (features.directionChange > MAX_DIRECTION_CHANGE) {
+    riskScore = Math.max(riskScore, 0.7);
+    reason = "Erratic path";
+  }
+  // Optionally, zoneInfo severity could affect riskScore
+  if (zoneInfo && zoneInfo.severity === 'high') {
+    riskScore = Math.max(riskScore, 0.9);
+  }
+  const anomaly = riskScore > 0.5;
+
+  return { anomaly, riskScore, features, reason };
 }
 
-module.exports = { detectAnomaly };
+// Dummy learnPattern (for future incremental training)
+function learnPattern(coords) {
+  // Example: update mean/stddev here to re-tune normal pattern
+  // For now, do nothing or print for verification
+  console.log('Learning patterns from:', coords);
+}
+
+module.exports = { detectAnomaly, learnPattern };

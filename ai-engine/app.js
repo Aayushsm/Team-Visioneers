@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const { detectAnomaly } = require('./detection');
+const axios = require('axios'); // For blockchain logging
+const { detectAnomaly, learnPattern } = require('./detection');
 const turf = require('@turf/turf');
 
 const app = express();
@@ -22,27 +23,50 @@ function checkGeofence(coord) {
   return false;
 }
 
-app.post('/ai/analyze', (req, res) => {
-  console.log('Received:', req.body);  // Move inside handler for req usage
+// Analyze pattern endpoint
+app.post('/ai/analyzePattern', (req, res) => {
+  console.log('Received:', req.body);
 
-  const { touristId, coords } = req.body;
-  if (!coords || coords.length < 2) {
+  const { touristId, recentCoords, zoneInfo } = req.body;
+  if (!recentCoords || recentCoords.length < 2) {
     return res.status(400).json({ error: "Need at least 2 coordinates." });
   }
 
-  const anomalyResult = detectAnomaly(coords);
-  const isGeofenceBreach = checkGeofence(coords[coords.length - 1]);
+  const { anomaly, riskScore, features, reason } = detectAnomaly(recentCoords, zoneInfo); // Upgraded signature
+  const isGeofenceBreach = checkGeofence(recentCoords[recentCoords.length - 1]);
+
+  // Log to blockchain if anomaly detected
+  if (anomaly) {
+    axios.post('http://blockchain.module/api/logIncident', {
+      touristId,
+      eventType: "ANOMALY",
+      features,
+      reason,
+      riskScore,
+      timestamp: Date.now()
+    })
+    .catch(e => console.error("Blockchain log failed", e.message));
+  }
 
   res.json({
     touristId,
-    isAnomaly: anomalyResult.anomaly,
+    anomaly,
+    riskScore,
     isGeofenceBreach,
-    features: anomalyResult.features,
-    reason: anomalyResult.reason
+    features,
+    reason
   });
 });
 
-// Health check route:
+// Training endpoint
+app.post('/ai/learnPattern', (req, res) => {
+  // Dummy implementation for now: could save normal feature stats
+  const { coords } = req.body;
+  learnPattern(coords); // Assume detection.js supports this
+  res.json({ success: true });
+});
+
+// Health check route
 app.get('/', (req, res) => res.send('AI Engine API running.'));
 
 const PORT = process.env.PORT || 3002;
