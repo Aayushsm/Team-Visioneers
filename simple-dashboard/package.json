@@ -1,0 +1,13 @@
+{
+  "name": "simple-dashboard",
+  "version": "0.1.0",
+  "description": "Minimal dashboard to demo backend integrations (geofence, blockchain, AI)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Simple SIH Dashboard</title>
+    <style>
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 24px; }
+      button { margin: 4px; padding: 8px 12px; }
+      pre { background:#f6f8fa; padding:12px; border-radius:6px; overflow:auto }
+      .col { display:inline-block; vertical-align:top; width:48%; margin-right:2% }
+    </style>
+  </head>
+  <body>
+    <h1>Simple SIH Dashboard</h1>
+    <p id="info">Loading config...</p>
+
+    <div class="col">
+      <h2>Read endpoints</h2>
+      <button id="btn-geofences">GET /geofences</button>
+      <button id="btn-tourists">GET /tourists</button>
+      <button id="btn-incidents">GET /emergency/incidents</button>
+      <h3>Response</h3>
+      <pre id="resp-get">(no response yet)</pre>
+    </div>
+
+    <div class="col">
+      <h2>AI analyze</h2>
+      <p>Sample payload below (adjust in the UI):</p>
+      <textarea id="ai-payload" rows="8" style="width:100%">{ "touristId": "T123", "coords": { "lat": 12.9716, "lng": 77.5946 } }</textarea>
+      <div>
+        <button id="btn-ai">POST /ai/analyze</button>
+      </div>
+      <h3>Response</h3>
+      <pre id="resp-ai">(no response yet)</pre>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

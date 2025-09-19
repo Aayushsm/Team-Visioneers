@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Simple Authority Dashboard — Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Authority Dashboard — Simple Demo</h1>
+    <div class="controls">
+      <label>Blockchain API:
+        <input id="blockchainBase" value="http://localhost:3001" />
+      </label>
+      <label>Geofence API:
+        <input id="geofenceBase" value="http://localhost:3002" />
+      </label>
+      <label>Google Maps API Key:
+        <input id="googleMapsKey" placeholder="(optional) your Google Maps API key" />
+      </label>
+      <button id="btnRefresh">Refresh</button>
+      <button id="btnCreateSampleGeofence">Create Sample Geofence</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="mapWrap">
+      <div id="map"></div>
+    </section>
+
+    <aside id="side">
+      <div class="panel">
+        <h2>Geofences</h2>
+        <ul id="geofenceList"></ul>
+      </div>
+      <div class="panel">
+        <h2>Incidents</h2>
+        <select id="incidentFilter">
+          <option value="all">All</option>
+          <option value="sos">SOS</option>
+          <option value="breach">Breach</option>
+          <option value="anomaly">Anomaly</option>
+        </select>
+        <ul id="incidentList"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <small>Point inputs to running services and click Refresh. Use README to serve/open the page.</small>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
