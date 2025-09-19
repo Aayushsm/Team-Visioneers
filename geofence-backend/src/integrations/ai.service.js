@@ -5,7 +5,8 @@ const axios = require('axios');
  */
 class AIService {
   constructor() {
-    this.baseUrl = process.env.AI_ENGINE_URL || 'http://localhost:3003';
+    // New Python FastAPI AI engine defaults to port 8000
+    this.baseUrl = process.env.AI_ENGINE_URL || 'http://localhost:8000';
   }
   
   /**
@@ -17,15 +18,14 @@ class AIService {
    */
   async analyzePattern(touristId, recentCoords, features = {}) {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/ai/analyzePattern`,
-        {
-          touristId,
-          recentCoords,
-          features
-        }
-      );
-      
+      // FastAPI expects `tourist_id` and `recent_coordinates` field names
+      const payload = {
+        tourist_id: touristId,
+        recent_coordinates: recentCoords
+      };
+
+      const response = await axios.post(`${this.baseUrl}/ai/analyze`, payload);
+
       return response.data;
     } catch (error) {
       console.error('Error analyzing pattern:', error.message);

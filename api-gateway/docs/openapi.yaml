@@ -1,0 +1,360 @@
+openapi: 3.0.3
+info:
+  title: SIH API Gateway
+  version: 1.0.0
+  description: >-
+    API Gateway for the Smart Tourist Safety project. This gateway exposes a
+    single port for mobile and dashboard clients and proxies requests to the
+    underlying services (blockchain, geofence, AI). Use environment variables
+    BLOCKCHAIN_URL, GEOFENCE_URL, and AI_URL to override default targets.
+servers:
+  - url: http://localhost:4000
+paths:
+  /health:
+    get:
+      summary: Gateway health
+      description: Returns gateway status and resolved backend targets
+      responses:
+        '200':
+          description: Gateway status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+                  targets:
+                    type: object
+  /geofences:
+    get:
+      summary: List geofences
+      description: Returns a list of geofence polygons and metadata. Proxied to the geofence service.
+      responses:
+        '200':
+          description: Array of geofence objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Geofence'
+    post:
+      summary: Create geofence
+      description: Create a new geofence. Proxied to geofence service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeofenceCreate'
+            examples:
+              simple:
+                value:
+                  name: "India Gate Safe Zone"
+                  type: "safe_zone"
+                  center:
+                    lat: 28.6139
+                    lng: 77.209
+                  radius: 1000
+      responses:
+        '201':
+          description: Created geofence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geofence'
+  /geofences/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      summary: Update geofence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeofenceUpdate'
+      responses:
+        '200':
+          description: Updated geofence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geofence'
+    delete:
+      summary: Delete geofence
+      responses:
+        '204':
+          description: Deleted
+
+  /tourists:
+    get:
+      summary: List tourists
+      description: Returns a list of registered tourists. Proxied to blockchain service which stores DeID/tourist data.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            description: Filter by tourist status (safe/warning/emergency)
+        - name: search
+          in: query
+          schema:
+            type: string
+            description: Full-text search on name or email
+      responses:
+        '200':
+          description: Array of tourist objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tourist'
+
+  /tourists/{id}/location:
+    post:
+      summary: Update tourist location
+      description: Used by the mobile app to post periodic location updates. Proxied to backend.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+                timestamp:
+                  type: string
+                  format: date-time
+            example:
+              lat: 28.6139
+              lng: 77.209
+              timestamp: '2025-09-19T15:00:00Z'
+      responses:
+        '200':
+          description: Location accepted
+
+  /emergency/incidents:
+    get:
+      summary: List incidents
+      responses:
+        '200':
+          description: Array of incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incident'
+    post:
+      summary: Create incident / SOS
+      description: Create an incident (e.g., tourist SOS). The mobile app should POST to this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentCreate'
+            examples:
+              sos:
+                value:
+                  reporterId: "tourist-123"
+                  type: "medical"
+                  description: "Emergency SOS triggered"
+                  location:
+                    lat: 28.6139
+                    lng: 77.209
+      responses:
+        '201':
+          description: Incident created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+
+  /ai/analyze:
+    post:
+      summary: AI analysis
+      description: Forward telemetry or region data to the AI service for anomaly detection / analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                touristId:
+                  type: string
+                coordinates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lat:
+                        type: number
+                      lng:
+                        type: number
+              required:
+                - touristId
+                - coordinates
+            example:
+              touristId: "tourist-123"
+              coordinates:
+                - lat: 28.6139
+                  lng: 77.209
+                - lat: 28.6140
+                  lng: 77.210
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  score:
+                    type: number
+                  anomalies:
+                    type: array
+                    items:
+                      type: object
+components:
+  schemas:
+    Geofence:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - safe_zone
+            - restricted
+            - tourist_area
+            - emergency_zone
+        center:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+        radius:
+          type: number
+        address:
+          type: string
+        touristsInside:
+          type: integer
+        alertsTriggered:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    GeofenceCreate:
+      type: object
+      required:
+        - name
+        - type
+        - center
+        - radius
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        center:
+          $ref: '#/components/schemas/Point'
+        radius:
+          type: number
+    GeofenceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        radius:
+          type: number
+        isActive:
+          type: boolean
+    Point:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+    Tourist:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+        status:
+          type: string
+        lastSeen:
+          type: string
+          format: date-time
+        geofenceStatus:
+          type: string
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        severity:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+        description:
+          type: string
+        reportedBy:
+          type: string
+        status:
+          type: string
+        assignedTo:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    IncidentCreate:
+      type: object
+      required:
+        - reporterId
+        - type
+        - location
+      properties:
+        reporterId:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+  securitySchemes: {}
+
+security: []
+

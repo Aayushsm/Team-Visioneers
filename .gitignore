@@ -2,6 +2,7 @@
 node_modules/
 blockchain-service/node_modules/
 ai-engine/node_modules/
+geofence-backend/node_modules/
 npm-debug.log*
 yarn-error.log*
 

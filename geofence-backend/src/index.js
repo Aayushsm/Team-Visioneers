@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
@@ -24,15 +23,8 @@ app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 app.use(morgan('dev')); // Request logging
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/geofence-backend')
-  .then(() => {
-    console.log('Connected to MongoDB');
-  })
-  .catch((err) => {
-    console.error('Failed to connect to MongoDB:', err);
-    process.exit(1);
-  });
+// Using JSON file storage instead of MongoDB
+console.log('Using JSON file storage for geofences and breach events');
 
 // Swagger documentation setup
 const swaggerOptions = {

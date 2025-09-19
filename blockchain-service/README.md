@@ -73,6 +73,7 @@ Environment variables are managed through `.env` file:
 - `NETWORK_CONFIG_PATH`: Path to network connection profile
 - `WALLET_PATH`: Path to user wallet directory
 - `CHANNEL_NAME`: Fabric channel name (default: mychannel)
+ - `FORCE_DEMO`: When set to `true`, the API will run in demo mode and return simulated responses if Fabric is unavailable. Default is `false`.
 
 ## Data Schemas
 

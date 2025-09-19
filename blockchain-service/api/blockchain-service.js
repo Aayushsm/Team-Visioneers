@@ -97,8 +97,11 @@ class BlockchainService {
             return JSON.parse(result.toString());
         } catch (error) {
             console.error('Error registering tourist DeID:', error.message);
-            // For demo purposes, return mock response
-            return this.getMockDeIDRegistration(touristData);
+            const forceDemo = (process.env.FORCE_DEMO || 'false').toLowerCase() === 'true';
+            if (forceDemo) {
+                return this.getMockDeIDRegistration(touristData);
+            }
+            throw error;
         }
     }
 
@@ -109,8 +112,11 @@ class BlockchainService {
             return JSON.parse(result.toString());
         } catch (error) {
             console.error('Error getting tourist DeID:', error.message);
-            // For demo purposes, return mock response
-            return this.getMockTouristDeID(touristId);
+            const forceDemo = (process.env.FORCE_DEMO || 'false').toLowerCase() === 'true';
+            if (forceDemo) {
+                return this.getMockTouristDeID(touristId);
+            }
+            throw error;
         }
     }
 
@@ -144,8 +150,11 @@ class BlockchainService {
             return JSON.parse(result.toString());
         } catch (error) {
             console.error('Error logging incident:', error.message);
-            // For demo purposes, return mock response
-            return this.getMockIncidentLog(incidentData);
+            const forceDemo = (process.env.FORCE_DEMO || 'false').toLowerCase() === 'true';
+            if (forceDemo) {
+                return this.getMockIncidentLog(incidentData);
+            }
+            throw error;
         }
     }
 

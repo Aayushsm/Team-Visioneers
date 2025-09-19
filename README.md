@@ -70,11 +70,12 @@ Tourist Safety System
    npm start
    ```
 
-5. **Launch the AI Engine**
+4. **Launch the AI Engine (FastAPI)**
    ```bash
-   cd ../ai-engine
-   npm install
-   node app.js
+   cd ../ai-engine-py
+   pip install -r requirements.txt
+   # Run with Uvicorn on port 8000
+   uvicorn main:app --host 0.0.0.0 --port 8000
    ```
 
 ## Component Details
@@ -100,8 +101,10 @@ Tourist Safety System
 ## API Documentation
 
 - Blockchain API: http://localhost:3001/api-docs
-- Geofencing API: http://localhost:3000/api-docs
-- AI Service API: http://localhost:3002/api-docs
+- Geofencing API: http://localhost:3002/api-docs
+- AI Service API (FastAPI): http://localhost:8000/docs
+
+Note: The blockchain service previously supported a "demo mode" that returned mock keys/responses when a Fabric network was unavailable. Demo mode is now opt-in. To allow demo responses instead of a real Fabric connection, set `FORCE_DEMO=true` in the blockchain service environment before starting it. By default the service will attempt to connect to Hyperledger Fabric and exit on initialization failure.
 
 ## Testing
 

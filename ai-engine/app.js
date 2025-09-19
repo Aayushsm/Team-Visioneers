@@ -1,6 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios'); // For blockchain logging
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 const { detectAnomaly, learnPattern } = require('./detection');
 const turf = require('@turf/turf');
 
@@ -23,6 +25,50 @@ function checkGeofence(coord) {
   return false;
 }
 
+/**
+ * @swagger
+ * /ai/analyzePattern:
+ *   post:
+ *     summary: Analyze tourist movement pattern for anomalies
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               touristId:
+ *                 type: string
+ *                 description: Unique tourist identifier
+ *               recentCoords:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     lat:
+ *                       type: number
+ *                     lng:
+ *                       type: number
+ *                     timestamp:
+ *                       type: number
+ *               zoneInfo:
+ *                 type: object
+ *                 description: Optional zone context information
+ *     responses:
+ *       200:
+ *         description: Anomaly analysis result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 anomaly:
+ *                   type: boolean
+ *                 riskScore:
+ *                   type: number
+ *                 reason:
+ *                   type: string
+ */
 // Analyze pattern endpoint
 app.post('/ai/analyzePattern', (req, res) => {
   console.log('Received:', req.body);
@@ -58,6 +104,33 @@ app.post('/ai/analyzePattern', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /ai/learnPattern:
+ *   post:
+ *     summary: Train the AI model with new coordinate patterns
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               coords:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     lat:
+ *                       type: number
+ *                     lng:
+ *                       type: number
+ *                     timestamp:
+ *                       type: number
+ *     responses:
+ *       200:
+ *         description: Successfully learned pattern
+ */
 // Training endpoint
 app.post('/ai/learnPattern', (req, res) => {
   // Dummy implementation for now: could save normal feature stats
@@ -66,10 +139,33 @@ app.post('/ai/learnPattern', (req, res) => {
   res.json({ success: true });
 });
 
+// Swagger documentation setup
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'AI Engine API',
+      version: '1.0.0',
+      description: 'API for AI-powered anomaly detection on tourist movement patterns',
+    },
+    servers: [
+      {
+        url: `http://localhost:${process.env.PORT || 4003}`,
+        description: 'Development server',
+      },
+    ],
+  },
+  apis: [__filename], // Path to this file with JSDoc comments
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Health check route
 app.get('/', (req, res) => res.send('AI Engine API running.'));
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 4003;
 app.listen(PORT, () => {
   console.log(`AI anomaly service listening on port ${PORT}`);
+  console.log(`API Documentation available at: http://localhost:${PORT}/api-docs`);
 });

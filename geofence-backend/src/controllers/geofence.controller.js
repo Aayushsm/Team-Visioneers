@@ -154,7 +154,7 @@ class GeofenceController {
             touristId,
             eventType: 'geofence_breach',
             location: coords,
-            geofenceId: result.geofence._id,
+              geofenceId: result.geofence.id,
             zoneType: result.geofence.zoneType,
             severity: result.geofence.severity,
             timestamp: new Date()
@@ -176,10 +176,12 @@ class GeofenceController {
           });
           
           // Update the breach event with forwarding status
-          breachEvent.forwardedToBlockchain = true;
-          breachEvent.alertSent = true;
-          breachEvent.processed = true;
-          await breachEvent.save();
+            const updated = await geofenceService.updateBreachEvent(breachEvent.id, {
+              forwardedToBlockchain: true,
+              alertSent: true,
+              processed: true
+            });
+            // ignore the updated result; it's persisted to the JSON file
         } catch (integrationError) {
           console.error('Integration error:', integrationError);
           // Don't fail the request if integrations fail
@@ -237,7 +239,7 @@ class GeofenceController {
               touristId: result.touristId,
               eventType: 'geofence_breach',
               location: checkRequests.find(r => r.touristId === result.touristId).coords,
-              geofenceId: result.geofence.id,
+                geofenceId: result.geofence.id,
               zoneType: result.geofence.zoneType,
               severity: result.geofence.severity,
               timestamp: new Date()

@@ -128,8 +128,9 @@ npm run deploy:chaincode
 npm start
 ```
 
-### Demo Mode
-The service includes a comprehensive demo mode that works without full blockchain deployment:
+### Demo Mode (Opt-in)
+The service includes a demo mode that can be enabled when a real Hyperledger Fabric network is not available. Demo mode is opt-in — set the environment variable `FORCE_DEMO=true` before starting the API to allow the server to return simulated responses instead of attempting real Fabric operations.
+
 ```bash
 # Run interactive demonstration
 node scripts/demo.js

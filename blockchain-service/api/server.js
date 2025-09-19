@@ -6,6 +6,11 @@ const helmet = require('helmet');
 const bodyParser = require('body-parser');
 const winston = require('winston');
 const Joi = require('joi');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 require('dotenv').config();
 
 const BlockchainService = require('./blockchain-service');
@@ -36,85 +41,47 @@ const port = process.env.PORT || 3001;
 // Initialize blockchain service
 const blockchainService = new BlockchainService();
 
+// Swagger documentation setup - prefer loading the complete YAML spec if available
+let swaggerSpec;
+try {
+    const openapiPath = path.join(__dirname, '..', 'docs', 'openapi.yaml');
+    if (fs.existsSync(openapiPath)) {
+        const fileContents = fs.readFileSync(openapiPath, 'utf8');
+        swaggerSpec = yaml.load(fileContents);
+        logger && logger.info && logger.info(`Loaded OpenAPI spec from ${openapiPath}`);
+    }
+} catch (err) {
+    logger && logger.warn && logger.warn('Failed to load openapi.yaml, falling back to swagger-jsdoc:', err.message);
+}
+
+if (!swaggerSpec) {
+    const swaggerOptions = {
+        definition: {
+            openapi: '3.0.0',
+            info: {
+                title: 'Blockchain Service API',
+                version: '1.0.0',
+                description: 'API for blockchain-based tourist identity management and incident logging using Hyperledger Fabric',
+            },
+            servers: [
+                {
+                    url: `http://localhost:${port}`,
+                    description: 'Development server',
+                },
+            ],
+        },
+        apis: [__filename],
+    };
+
+    swaggerSpec = swaggerJsdoc(swaggerOptions);
+}
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Middleware
 app.use(helmet());
-app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(bodyParser.json({ limit: process.env.MAX_REQUEST_SIZE || '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.path}`, {
-        ip: req.ip,
-        userAgent: req.get('User-Agent')
-    });
-    next();
-});
-
-// Validation schemas
-const touristSchema = Joi.object({
-    name: Joi.string().required().min(2).max(100),
-    nationality: Joi.string().required().min(2).max(50),
-    phoneNumber: Joi.string().required().pattern(/^\+?[\d\s\-\(\)]+$/),
-    emergencyContact: Joi.string().required().pattern(/^\+?[\d\s\-\(\)]+$/),
-    email: Joi.string().email().optional(),
-    dateOfBirth: Joi.string().isoDate().optional(),
-    passportNumber: Joi.string().optional(),
-    touristId: Joi.string().optional()
-});
-
-const incidentSchema = Joi.object({
-    touristId: Joi.string().required(),
-    eventType: Joi.string().required().valid('breach', 'anomaly', 'sos', 'response', 'resolved', 'alert'),
-    location: Joi.object({
-        latitude: Joi.number().required().min(-90).max(90),
-        longitude: Joi.number().required().min(-180).max(180),
-        address: Joi.string().optional(),
-        geofenceId: Joi.string().optional()
-    }).required(),
-    severity: Joi.string().optional().valid('low', 'medium', 'high', 'critical'),
-    description: Joi.string().optional(),
-    metadata: Joi.object().optional(),
-    reportedBy: Joi.string().optional()
-});
-
-const regionSchema = Joi.object({
-    bounds: Joi.object({
-        north: Joi.number().required().min(-90).max(90),
-        south: Joi.number().required().min(-90).max(90),
-        east: Joi.number().required().min(-180).max(180),
-        west: Joi.number().required().min(-180).max(180)
-    }).required()
-});
-
-// Error handling middleware
-const handleError = (res, error, context = '') => {
-    logger.error(`Error in ${context}:`, error);
-    res.status(500).json({
-        success: false,
-        error: error.message || 'Internal server error',
-        timestamp: new Date().toISOString()
-    });
-};
-
-// Validation middleware
-const validateRequest = (schema) => {
-    return (req, res, next) => {
-        const { error } = schema.validate(req.body);
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: error.details[0].message,
-                timestamp: new Date().toISOString()
-            });
-        }
-        next();
-    };
-};
+app.use(cors());
+app.use(bodyParser.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -126,274 +93,58 @@ app.get('/health', (req, res) => {
     });
 });
 
-// API Routes
-
-// Tourist DeID Management Routes
-app.post('/blockchain/registerDeID', validateRequest(touristSchema), async (req, res) => {
+// Basic routes for demo
+app.post('/blockchain/registerDeID', async (req, res) => {
     try {
-        logger.info('Registering new tourist DeID', { touristName: req.body.name });
         const result = await blockchainService.registerTouristDeID(req.body);
-        
         res.status(201).json({
             success: true,
             data: result,
             timestamp: new Date().toISOString()
         });
-        
-        logger.info('Tourist DeID registered successfully', { touristId: result.touristId });
     } catch (error) {
-        handleError(res, error, 'registerDeID');
-    }
-});
-
-app.get('/blockchain/deid/:touristId', async (req, res) => {
-    try {
-        const { touristId } = req.params;
-        
-        if (!touristId) {
-            return res.status(400).json({
-                success: false,
-                error: 'Tourist ID is required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        logger.info('Getting tourist DeID', { touristId });
-        const result = await blockchainService.getTouristDeID(touristId);
-        
-        res.json({
-            success: true,
-            data: result,
+        res.status(500).json({
+            success: false,
+            error: error.message,
             timestamp: new Date().toISOString()
         });
-        
-        logger.info('Tourist DeID retrieved successfully', { touristId });
-    } catch (error) {
-        handleError(res, error, 'getTouristDeID');
     }
 });
 
-app.put('/blockchain/deid/:touristId/status', async (req, res) => {
+app.post('/blockchain/logIncident', async (req, res) => {
     try {
-        const { touristId } = req.params;
-        const { status } = req.body;
-        
-        if (!status || !['active', 'inactive', 'suspended'].includes(status)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid status is required (active, inactive, suspended)',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        logger.info('Updating tourist status', { touristId, status });
-        const result = await blockchainService.updateTouristStatus(touristId, status);
-        
-        res.json({
-            success: true,
-            data: result,
-            timestamp: new Date().toISOString()
-        });
-        
-        logger.info('Tourist status updated successfully', { touristId, status });
-    } catch (error) {
-        handleError(res, error, 'updateTouristStatus');
-    }
-});
-
-app.post('/blockchain/deid/:touristId/verify', async (req, res) => {
-    try {
-        const { touristId } = req.params;
-        const { signature, message } = req.body;
-        
-        if (!signature || !message) {
-            return res.status(400).json({
-                success: false,
-                error: 'Signature and message are required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        logger.info('Verifying tourist identity', { touristId });
-        const result = await blockchainService.verifyTouristIdentity(touristId, signature, message);
-        
-        res.json({
-            success: true,
-            data: result,
-            timestamp: new Date().toISOString()
-        });
-        
-        logger.info('Tourist identity verification completed', { touristId, verified: result.verified });
-    } catch (error) {
-        handleError(res, error, 'verifyTouristIdentity');
-    }
-});
-
-// Incident Management Routes
-app.post('/blockchain/logIncident', validateRequest(incidentSchema), async (req, res) => {
-    try {
-        logger.info('Logging new incident', { 
-            touristId: req.body.touristId, 
-            eventType: req.body.eventType 
-        });
-        
         const result = await blockchainService.logIncident(req.body);
-        
         res.status(201).json({
             success: true,
             data: result,
             timestamp: new Date().toISOString()
         });
-        
-        logger.info('Incident logged successfully', { incidentId: result.incidentId });
     } catch (error) {
-        handleError(res, error, 'logIncident');
-    }
-});
-
-app.get('/blockchain/incidents', async (req, res) => {
-    try {
-        const { touristId, region, startDate, endDate, limit } = req.query;
-        
-        if (touristId) {
-            // Get incidents for specific tourist
-            logger.info('Getting incidents for tourist', { touristId });
-            const result = await blockchainService.getIncidentsForTourist(touristId, parseInt(limit) || 50);
-            
-            res.json({
-                success: true,
-                data: result,
-                count: result.length,
-                timestamp: new Date().toISOString()
-            });
-            
-        } else if (region) {
-            // Get incidents by region
-            try {
-                const regionData = JSON.parse(region);
-                const { error } = regionSchema.validate(regionData);
-                if (error) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Invalid region data: ' + error.details[0].message,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-                
-                logger.info('Getting incidents by region');
-                const result = await blockchainService.getIncidentsByRegion(regionData, startDate, endDate);
-                
-                res.json({
-                    success: true,
-                    data: result,
-                    count: result.length,
-                    timestamp: new Date().toISOString()
-                });
-                
-            } catch (parseError) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid region JSON format',
-                    timestamp: new Date().toISOString()
-                });
-            }
-        } else {
-            return res.status(400).json({
-                success: false,
-                error: 'Either touristId or region parameter is required',
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-    } catch (error) {
-        handleError(res, error, 'getIncidents');
-    }
-});
-
-app.put('/blockchain/incidents/:incidentId', async (req, res) => {
-    try {
-        const { incidentId } = req.params;
-        
-        logger.info('Updating incident status', { incidentId });
-        const result = await blockchainService.updateIncidentStatus(incidentId, req.body);
-        
-        res.json({
-            success: true,
-            data: result,
+        res.status(500).json({
+            success: false,
+            error: error.message,
             timestamp: new Date().toISOString()
         });
-        
-        logger.info('Incident status updated successfully', { 
-            incidentId, 
-            newStatus: req.body.status 
-        });
-    } catch (error) {
-        handleError(res, error, 'updateIncidentStatus');
     }
-});
-
-app.get('/blockchain/incidents/statistics', async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
-        
-        logger.info('Getting incident statistics');
-        const result = await blockchainService.getIncidentStatistics(startDate, endDate);
-        
-        res.json({
-            success: true,
-            data: result,
-            timestamp: new Date().toISOString()
-        });
-        
-        logger.info('Incident statistics retrieved successfully');
-    } catch (error) {
-        handleError(res, error, 'getIncidentStatistics');
-    }
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: 'Endpoint not found',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Global error handler
-app.use((error, req, res, next) => {
-    logger.error('Unhandled error:', error);
-    res.status(500).json({
-        success: false,
-        error: 'Internal server error',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-    logger.info('Received SIGINT, shutting down gracefully...');
-    await blockchainService.disconnect();
-    process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-    logger.info('Received SIGTERM, shutting down gracefully...');
-    await blockchainService.disconnect();
-    process.exit(0);
 });
 
 // Start server
 const startServer = async () => {
     try {
-        // Initialize blockchain service
         await blockchainService.initialize().catch(error => {
-            logger.warn('Blockchain service initialization failed, running in demo mode:', error.message);
+            const forceDemo = (process.env.FORCE_DEMO || 'false').toLowerCase() === 'true';
+            if (forceDemo) {
+                logger.warn('Blockchain service initialization failed, running in demo mode (FORCE_DEMO=true):', error.message);
+            } else {
+                logger.error('Blockchain service initialization failed and FORCE_DEMO is not enabled. Exiting. Error:', error.message);
+                process.exit(1);
+            }
         });
-        
+
         app.listen(port, () => {
             logger.info(`Blockchain Service API running on port ${port}`);
             logger.info(`Health check: http://localhost:${port}/health`);
+            logger.info(`API Documentation: http://localhost:${port}/api-docs`);
             logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
         });
         

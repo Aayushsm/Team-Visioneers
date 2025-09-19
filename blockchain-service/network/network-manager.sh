@@ -13,11 +13,16 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Environment variables
+# Environment variables and paths
 export COMPOSE_PROJECT_NAME=tourist-safety
 export IMAGE_TAG=latest
 export SYS_CHANNEL=system-channel
 export CHANNEL_NAME=safetychannel
+
+# Set absolute paths
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yaml"
+PEER_BASE_FILE="$SCRIPT_DIR/peer-base.yaml"
 
 # Function to check if Docker is running
 check_docker() {

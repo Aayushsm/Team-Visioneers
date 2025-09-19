@@ -1,11 +1,78 @@
 const turf = require('@turf/turf');
-const Geofence = require('../models/geofence.model');
-const BreachEvent = require('../models/breachEvent.model');
+const fs = require('fs');
+const path = require('path');
+
+const DATA_FILE = path.join(__dirname, '../data/geofences.json');
+const BREACH_FILE = path.join(__dirname, '../data/breachEvents.json');
 
 /**
  * Geofence Service - Handles all geofence operations using Turf.js
  */
 class GeofenceService {
+  /**
+   * Log a breach event
+   * @param {Object} eventData - Breach event data
+   * @returns {Promise<Object>} - Logged event
+   */
+  async logBreachEvent(eventData) {
+    try {
+      let events = [];
+      if (fs.existsSync(BREACH_FILE)) {
+        events = JSON.parse(fs.readFileSync(BREACH_FILE));
+      }
+      const id = Date.now().toString();
+      const newEvent = { id, ...eventData, timestamp: new Date().toISOString() };
+      events.push(newEvent);
+      fs.writeFileSync(BREACH_FILE, JSON.stringify(events, null, 2));
+      return newEvent;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing breach event by id
+   * @param {string} id - Breach event id
+   * @param {Object} updates - Fields to update
+   * @returns {Promise<Object>} - Updated breach event
+   */
+  async updateBreachEvent(id, updates) {
+    try {
+      let breachEvents = [];
+      if (fs.existsSync(BREACH_FILE)) {
+        try {
+          breachEvents = JSON.parse(fs.readFileSync(BREACH_FILE));
+        } catch (e) {
+          breachEvents = [];
+        }
+      }
+
+      const idx = breachEvents.findIndex(be => be.id === id);
+      if (idx === -1) throw new Error('Breach event not found');
+
+      breachEvents[idx] = { ...breachEvents[idx], ...updates };
+      fs.writeFileSync(BREACH_FILE, JSON.stringify(breachEvents, null, 2));
+      return breachEvents[idx];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Get all breach events
+   * @returns {Promise<Array>} - List of breach events
+   */
+  async getAllBreachEvents() {
+    try {
+      let events = [];
+      if (fs.existsSync(BREACH_FILE)) {
+        events = JSON.parse(fs.readFileSync(BREACH_FILE));
+      }
+      return events;
+    } catch (error) {
+      throw error;
+    }
+  }
   /**
    * Create a new geofence polygon
    * @param {Object} geofenceData - Geofence data including polygon, name, etc.
@@ -15,34 +82,26 @@ class GeofenceService {
     try {
       // Validate polygon using Turf.js
       const polygon = geofenceData.polygon;
-      
-      // Ensure it's a valid GeoJSON polygon
       if (polygon.type !== 'Polygon' || !Array.isArray(polygon.coordinates)) {
         throw new Error('Invalid polygon format: must be a GeoJSON Polygon');
       }
-      
-      // Validate with Turf.js
+      // Basic Turf validation
       try {
-        const turfPolygon = turf.polygon(polygon.coordinates);
-        
-        // Check if polygon is valid
-        if (!turf.booleanValid(turfPolygon)) {
-          throw new Error('Invalid polygon: The geometry is not valid');
-        }
-        
-        // Additional validation: Ensure the polygon doesn't self-intersect
-        if (!this.isValidPolygon(polygon.coordinates[0])) {
-          throw new Error('Invalid polygon: Self-intersecting polygons are not allowed');
-        }
+        turf.polygon(polygon.coordinates);
       } catch (err) {
         throw new Error(`Polygon validation failed: ${err.message}`);
       }
-      
-      // Create the geofence
-      const geofence = new Geofence(geofenceData);
-      await geofence.save();
-      
-      return geofence;
+      // Read existing geofences
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      // Assign an ID
+      const id = Date.now().toString();
+      const newGeofence = { id, ...geofenceData, active: true, createdAt: new Date().toISOString() };
+      geofences.push(newGeofence);
+      fs.writeFileSync(DATA_FILE, JSON.stringify(geofences, null, 2));
+      return newGeofence;
     } catch (error) {
       throw error;
     }
@@ -54,7 +113,11 @@ class GeofenceService {
    */
   async getAllGeofences() {
     try {
-      return await Geofence.find({ active: true });
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      return geofences.filter(g => g.active);
     } catch (error) {
       throw error;
     }
@@ -67,7 +130,11 @@ class GeofenceService {
    */
   async getGeofenceById(id) {
     try {
-      const geofence = await Geofence.findById(id);
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      const geofence = geofences.find(g => g.id === id);
       if (!geofence) {
         throw new Error('Geofence not found');
       }
@@ -85,44 +152,27 @@ class GeofenceService {
    */
   async updateGeofence(id, updateData) {
     try {
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      const idx = geofences.findIndex(g => g.id === id);
+      if (idx === -1) throw new Error('Geofence not found');
       // If updating the polygon, validate it
       if (updateData.polygon) {
         const polygon = updateData.polygon;
-        
-        // Ensure it's a valid GeoJSON polygon
         if (polygon.type !== 'Polygon' || !Array.isArray(polygon.coordinates)) {
           throw new Error('Invalid polygon format: must be a GeoJSON Polygon');
         }
-        
-        // Validate with Turf.js
         try {
-          const turfPolygon = turf.polygon(polygon.coordinates);
-          
-          // Check if polygon is valid
-          if (!turf.booleanValid(turfPolygon)) {
-            throw new Error('Invalid polygon: The geometry is not valid');
-          }
-          
-          // Additional validation: Ensure the polygon doesn't self-intersect
-          if (!this.isValidPolygon(polygon.coordinates[0])) {
-            throw new Error('Invalid polygon: Self-intersecting polygons are not allowed');
-          }
+          turf.polygon(polygon.coordinates);
         } catch (err) {
           throw new Error(`Polygon validation failed: ${err.message}`);
         }
       }
-      
-      const geofence = await Geofence.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      );
-      
-      if (!geofence) {
-        throw new Error('Geofence not found');
-      }
-      
-      return geofence;
+      geofences[idx] = { ...geofences[idx], ...updateData };
+      fs.writeFileSync(DATA_FILE, JSON.stringify(geofences, null, 2));
+      return geofences[idx];
     } catch (error) {
       throw error;
     }
@@ -135,17 +185,15 @@ class GeofenceService {
    */
   async deleteGeofence(id) {
     try {
-      const geofence = await Geofence.findByIdAndUpdate(
-        id,
-        { active: false },
-        { new: true }
-      );
-      
-      if (!geofence) {
-        throw new Error('Geofence not found');
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
       }
-      
-      return geofence;
+      const idx = geofences.findIndex(g => g.id === id);
+      if (idx === -1) throw new Error('Geofence not found');
+      geofences[idx].active = false;
+      fs.writeFileSync(DATA_FILE, JSON.stringify(geofences, null, 2));
+      return geofences[idx];
     } catch (error) {
       throw error;
     }
@@ -162,10 +210,14 @@ class GeofenceService {
       const point = turf.point([coords.lng, coords.lat]);
       
       // Get all active geofences
-      const geofences = await Geofence.find({ active: true });
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      const activeGeofences = geofences.filter(g => g.active);
       
       // Check each geofence
-      for (const geofence of geofences) {
+      for (const geofence of activeGeofences) {
         const polygon = turf.polygon(geofence.polygon.coordinates);
         
         // Check if point is inside polygon
@@ -207,15 +259,30 @@ class GeofenceService {
    */
   async recordBreachEvent(touristId, coords, geofence) {
     try {
-      const breachEvent = new BreachEvent({
+      const breachEvent = {
+        id: Date.now().toString(),
         touristId,
-        geofenceId: geofence._id,
+        geofenceId: geofence.id,
         coordinates: coords,
         zoneType: geofence.zoneType,
-        severity: geofence.severity
-      });
+        severity: geofence.severity,
+        timestamp: new Date().toISOString()
+      };
+      // Read existing breach events from the JSON file (BREACH_FILE)
+      let breachEvents = [];
+      if (fs.existsSync(BREACH_FILE)) {
+        try {
+          breachEvents = JSON.parse(fs.readFileSync(BREACH_FILE));
+        } catch (e) {
+          // If file is corrupted or empty, start fresh
+          breachEvents = [];
+        }
+      }
+
+      // Add new breach event and persist
+      breachEvents.push(breachEvent);
+      fs.writeFileSync(BREACH_FILE, JSON.stringify(breachEvents, null, 2));
       
-      await breachEvent.save();
       return breachEvent;
     } catch (error) {
       throw error;
@@ -230,7 +297,11 @@ class GeofenceService {
   async bulkCheckPoints(checkRequests) {
     try {
       // Get all active geofences once
-      const geofences = await Geofence.find({ active: true });
+      let geofences = [];
+      if (fs.existsSync(DATA_FILE)) {
+        geofences = JSON.parse(fs.readFileSync(DATA_FILE));
+      }
+      const activeGeofences = geofences.filter(g => g.active);
       
       // Process each check request
       const results = [];
@@ -245,7 +316,7 @@ class GeofenceService {
         let breachedGeofence = null;
         
         // Check each geofence
-        for (const geofence of geofences) {
+        for (const geofence of activeGeofences) {
           const polygon = turf.polygon(geofence.polygon.coordinates);
           
           // Check if point is inside polygon
@@ -266,7 +337,7 @@ class GeofenceService {
           breach: breachDetected,
           ...(breachedGeofence && {
             geofence: {
-              id: breachedGeofence._id,
+              id: breachedGeofence.id,
               name: breachedGeofence.name,
               zoneType: breachedGeofence.zoneType,
               severity: breachedGeofence.severity

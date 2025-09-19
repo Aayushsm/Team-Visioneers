@@ -1,0 +1,113 @@
+[
+  {
+    "id": "1758280672872",
+    "name": "Test Danger Zone",
+    "description": "Test geofence for API testing",
+    "polygon": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            77.5946,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9716
+          ]
+        ]
+      ]
+    },
+    "zoneType": "danger",
+    "severity": "high",
+    "createdBy": "test-admin",
+    "active": true,
+    "createdAt": "2025-09-19T11:17:52.872Z"
+  },
+  {
+    "id": "1758288800545",
+    "name": "Test Danger Zone",
+    "description": "Test geofence for API testing",
+    "polygon": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            77.5946,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9716
+          ]
+        ]
+      ]
+    },
+    "zoneType": "danger",
+    "severity": "high",
+    "createdBy": "test-admin",
+    "active": true,
+    "createdAt": "2025-09-19T13:33:20.545Z"
+  },
+  {
+    "id": "1758288947442",
+    "name": "Test Danger Zone",
+    "description": "Test geofence for API testing",
+    "polygon": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            77.5946,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9716
+          ],
+          [
+            77.5956,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9726
+          ],
+          [
+            77.5946,
+            12.9716
+          ]
+        ]
+      ]
+    },
+    "zoneType": "danger",
+    "severity": "high",
+    "createdBy": "test-admin",
+    "active": true,
+    "createdAt": "2025-09-19T13:35:47.442Z"
+  }
+]
