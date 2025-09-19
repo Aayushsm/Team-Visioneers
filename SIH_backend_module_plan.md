@@ -1,0 +1,125 @@
+# Modular Build Plan: Smart Tourist Safety—SIH Hackathon
+
+## Overview
+Each backend module—**Blockchain (Hyperledger for DeID + audit), Geofence Backend, and AI Engine**—is to be built as a distinct service/microservice, with well-defined APIs and data contracts for seamless integration. 
+
+- *Develop each module in a separate branch (blockchain, geofence-backend, ai-engine)*
+- *Push to a common GitHub repo, each with README and OpenAPI spec for their endpoints*
+
+**All modules must be able to run independently for testing, and plug together for global integration.**
+
+---
+
+## SYSTEM ARCHITECTURE AT-A-GLANCE
+
+- Mobile App <—> API Gateway <—> \
+  |- Blockchain Service (Hyperledger Fabric): Digital ID, Audit trail\
+  |- Geofence Backend: Polygon management, server-side breach detection\
+  |- AI Engine: Anomaly detection on GPS streams
+- All write-read flows coordinated through API Gateway. Each module exposes REST/gRPC endpoints.
+
+---
+
+## 1. BLOCKCHAIN MODULE (hyperledger-deid-and-audit)
+
+### Purpose
+- Provide creation / verification of **Tourist DeID (Decentralized ID)** via chaincode on Hyperledger
+- Immutably log key events (registration, geo-breach, anomaly detected, SOS, help dispatched)
+- Query incident/audit logs per tourist or authority
+- Serve as the ground truth for all ID and incident data
+
+### Participants
+- Org1: Tourism Authority (primary holding org)
+- Org2: Demo NGO/Security Partner
+
+### Key Chaincode/Smart Contracts
+- `DeIDContract`:
+    - `RegisterTouristDeID(touristData)`: issue tourist decentralized identity, associate wallet address
+    - `GetTouristDeID(touristId)`: query DeID and public fields
+- `IncidentLogContract`:
+    - `LogIncident(touristId, eventType, location, timestamp)`: On any critical event, append (with eventType: breach/anomaly/SOS/response...)
+    - `GetIncidentsForTourist(touristId)`
+    - `GetIncidentsByRegion(polygon, [start,end])`
+
+### Technical Tasks
+1. Bootstrap 2-org test network using `fabric-samples` repo short-lived containers for demo
+2. Implement/instantiate `DeIDContract` and `IncidentLogContract` chaincodes
+3. Design REST API endpoints (microservice in Node.js/Python/Go):
+    - POST `/blockchain/registerDeID` (input: touristData)
+    - GET `/blockchain/deid/:touristId`
+    - POST `/blockchain/logIncident` (input: touristId, eventType, location...)
+    - GET `/blockchain/incidents?touristId=...` , `/blockchain/incidents?region=...`
+    - All orgs require joint endorsement for registerDeID and logIncident.
+4. Integrate with API Gateway; test with mock requests.
+5. Document OpenAPI spec, write sample usage scripts.
+
+---
+
+## 2. GEOFENCE BACKEND MODULE (geofence-backend)
+
+### Purpose
+- Define, store, and serve geofence polygons (danger/safe zones)
+- Run all **server-side checks** if a tourist's coordinate is inside a restricted/monitored polygon
+- Serve CRUD API for authorities to manage geofences
+- Forward relevant breach events to Blockchain & Alert System
+
+### Technical Tasks
+1. REST API endpoints:
+    - POST `/geofence/create` (authority only, body: polygon GeoJSON, zone type, severity)
+    - GET `/geofence/all`
+    - POST `/geofence/check` (input: touristId, coords; returns {breach: true/false, zone info})
+    - POST `/geofence/bulkCheck` (for groups/tour buses)
+2. Backend: Node.js w/ [@turf/turf](https://turfjs.org) for geo-operations
+3. DB: MongoDB/PostGIS for persistent storage of polygons and history
+4. Integrate with GCP Maps SDK:
+    - On dashboard, allow authorities to create/draw polygons in UI, sync via `/geofence/create`
+    - On mobile app: pull all active polygons for map overlay, local client-side check if suitable
+5. For every breach, push: event to Blockchain & trigger alert module
+6. Document endpoints via OpenAPI; provide sample test cases
+
+---
+
+## 3. AI ENGINE MODULE (ai-engine)
+
+### Purpose
+- Provide **anomaly detection** service for tourist movement (coord streams per tourist/session)
+- Flag significant outlier events: erratic path, dangerous behavior, longer-than-normal loitering, etc.
+- Return risk score and explanation for each check/event
+
+### Technical Tasks
+1. Standalone microservice, REST/gRPC endpoints:
+    - POST `/ai/analyzePattern` (input: touristId, recentCoords[], optional features)
+        - Returns: {anomaly: true/false, riskScore, reason}
+    - POST `/ai/learnPattern` (incremental training from new normal data, if desired)
+2. Lightweight unsupervised algorithm (One-Class SVM/sklearn, IsolationForest/sklearn, or Tf.js+KMeans)
+    - Start with dumb thresholds if not enough time/data (e.g. max deviation, z-score)
+3. Optionally take “zone info” from geofence-backend for more contextual analysis
+4. Direct event log to Blockchain upon anomaly
+5. Provide conf/threshold tuning at runtime if needed. Document training/usage for frontend/backend teams
+
+---
+
+## SHARED CONVENTIONS / INTEGRATION
+- **Common touristId/DeID** field schema used system-wide, generated by blockchain module and shared via API
+- All events (breach/anomaly) trigger a `logIncident` to blockchain.
+- Data contracts (JSON) agreed upon for position `{ touristId, lat, lng, timestamp }`, for incidents `{ touristId, eventType, location, ... }`.
+- API Gateway coordinates requests for sequence, or each module exposes its own port for direct test/dev
+- Each module’s README describes expected request JSONs and sample response
+- OpenAPI specs published and kept in sync at root level of repo.
+
+---
+
+## TEAM/BRANCH/PR STRATEGY
+- **One branch per service:** `blockchain-service`, `geofence-backend`, `ai-engine`, all start from shared base code.
+- Daily/half-daily PR reviews, merge only after minimal API & OpenAPI compatibility check.
+- After integration phase, full end-to-end tests for breach→AI→blockchain logging.
+
+---
+
+## DEMO & DEPLOYMENT
+- Each service can run locally via Docker or node start scripts
+- Demo/demo-script: illustrate each service both standalone (unit test) and as integrated part (system event chain—e.g., tourist enters polygon, geofence-backend detects, AI analyzes, blockchain immutably logs)
+
+---
+
+# End of Build Plan
